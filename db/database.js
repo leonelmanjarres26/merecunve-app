@@ -36,7 +36,8 @@ db.exec(`
     nombre     TEXT    NOT NULL,
     precio     INTEGER NOT NULL,
     cantidad   INTEGER NOT NULL,
-    notas      TEXT    DEFAULT ''
+    notas      TEXT    DEFAULT '',
+    preparado  INTEGER NOT NULL DEFAULT 0
   );
 `);
 
@@ -63,5 +64,24 @@ if (count.n === 0) {
     { categoria: 'Postres',   emoji: '🍰', nombre: 'Torta de chocolate',  descripcion: 'Con helado de vainilla',           precio: 10000 },
   ]);
 }
+
+// Migraciones sencillas: agregar columna 'estacion' a menu_items si no existe
+try {
+  const info = db.prepare("PRAGMA table_info(menu_items)").all();
+  if (!info.find(c => c.name === 'estacion')) {
+    db.prepare("ALTER TABLE menu_items ADD COLUMN estacion TEXT NOT NULL DEFAULT 'cocina'").run();
+  }
+} catch (e) { /* ignore */ }
+
+// Asegurar columna 'preparado' en pedido_items (si la DB anterior no la tenía)
+try {
+  const info2 = db.prepare("PRAGMA table_info(pedido_items)").all();
+  if (!info2.find(c => c.name === 'preparado')) {
+    db.prepare("ALTER TABLE pedido_items ADD COLUMN preparado INTEGER NOT NULL DEFAULT 0").run();
+  }
+  if (!info2.find(c => c.name === 'estacion')) {
+    db.prepare("ALTER TABLE pedido_items ADD COLUMN estacion TEXT NOT NULL DEFAULT 'cocina'").run();
+  }
+} catch (e) { /* ignore */ }
 
 module.exports = db;

@@ -45,6 +45,12 @@
         <option value="entregado">Entregado</option>
         <option value="cancelado">Cancelado</option>
       </select>
+      <select id="f-estacion" onchange="cargarPedidos()">
+        <option value="">Todas las estaciones</option>
+        <option value="cocina">Cocina</option>
+        <option value="bar">Bar</option>
+        <option value="postre">Postre</option>
+      </select>
       <button class="btn" onclick="cargarPedidos()">↻ Actualizar</button>
     </div>
 
@@ -76,11 +82,15 @@
             <div class="estado-badge ${claseEstado(p.estado)}">${p.estado}</div>
           </div>
           <div class="pedido-items">
-            ${p.items.map(i=>`<div class="pi-row"><div class="qty">${i.cantidad}×</div><div style="flex:1">${i.nombre}</div><div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div></div>${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('')}
+            ${(() => {
+              const est = (typeof window !== 'undefined' && document.getElementById('f-estacion')) ? document.getElementById('f-estacion').value : '';
+              return p.items.filter(it => !est || it.estacion === est).map(i=>`<div class="pi-row"><div class="qty">${i.cantidad}×</div><div style="flex:1">${i.nombre}</div><div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div></div>${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('');
+            })()}
           </div>
           <div class="pedido-footer">
             <div style="font-weight:800;color:#c0392b">${fmt(p.total)}</div>
-            <div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a class="btn" href="/print/pedido/${p.id}" target="_blank">Imprimir</a>
               <select onchange="cambiarEstado(${p.id}, this.value)">
                 <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>pendiente</option>
                 <option value="en preparación" ${p.estado==='en preparación'?'selected':''}>en preparación</option>

@@ -58,9 +58,16 @@
             <div class="estado-badge estado-${p.estado.replace(' ','-')}">${p.estado}</div>
           </div>
           <div style="margin-top:10px">
-            ${p.items.map(i=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="min-width:28px;color:#888">${i.cantidad}×</div><div style="flex:1">${i.nombre}</div><div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div></div>${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('')}
+                  ${p.items.map(i=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                      <div style="min-width:28px;color:#888">${i.cantidad}×</div>
+                      <div style="flex:1">${i.nombre}</div>
+                      <div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div>
+                      <div><input type="checkbox" ${i.preparado? 'checked' : ''} onchange="marcarItem(${i.id}, this.checked)"> Preparado</div>
+                    </div>
+                    ${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('')}
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+            <a class="btn" href="/print/pedido/${p.id}" target="_blank">Imprimir</a>
             ${p.estado==='pendiente'?`<button class="btn btn-primary" onclick="marcar(${p.id},'en preparación')">Tomar pedido</button>`:''}
             ${p.estado!=='listo'?`<button class="btn btn-success" onclick="marcar(${p.id},'listo')">Marcar listo</button>`:''}
           </div>
@@ -72,6 +79,35 @@
       await fetch(`/api/pedidos/${id}/estado`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado})});
       cargarPedidos();
     }
+
+    async function marcarItem(id, preparado){
+      // pedir credenciales básicas al usuario (prompt)
+      const user = prompt('Usuario staff:','staff');
+      const pass = prompt('Contraseña:','m1234');
+      if (!user) return;
+      const token = btoa(user+':'+pass);
+      await fetch(`/api/pedido_items/${id}/preparado`,{method:'PATCH',headers:{'Content-Type':'application/json','Authorization':'Basic '+token},body:JSON.stringify({preparado})});
+      cargarPedidos();
+    }
+
+    // Notificación sonora en la cocina
+    function beep(){
+      try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        o.type = 'sine'; o.frequency.value = 800; o.connect(ctx.destination); o.start();
+        setTimeout(()=>{ o.stop(); ctx.close(); }, 180);
+      }catch(e){}
+    }
+
+    // SSE: actualizaciones en tiempo real
+    try {
+      const es = new EventSource('/api/events');
+      es.onmessage = function(e){
+        try{ const d = JSON.parse(e.data); if(d.tipo){ cargarPedidos(); if(d.tipo==='nuevo_pedido') { beep(); document.title='(Nuevo) Cocina'; setTimeout(()=>document.title='Merecunve · Cocina',3000);} } }
+        catch(err){}
+      };
+    } catch(err){}
 
     cargarPedidos();
     setInterval(cargarPedidos,4000);

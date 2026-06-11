@@ -8,6 +8,12 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
+// servir páginas protegidas: rutas específicas con basicAuth
+app.get('/admin.html', basicAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.get('/recepcion.html', basicAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'recepcion.html')));
+app.get('/cocina.html', basicAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'cocina.html')));
+
+// Archivos estáticos públicos (resto)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // SSE clients
@@ -18,6 +24,17 @@ function sendSseEvent(obj) {
   for (const res of sseClients) {
     try { res.write(data); } catch (e) { /* ignore */ }
   }
+}
+
+// Basic auth middleware for staff pages/actions
+function basicAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  const user = process.env.STAFF_USER || 'staff';
+  const pass = process.env.STAFF_PASS || 'm1234';
+  if (!auth || !auth.startsWith('Basic ')) return res.status(401).set('WWW-Authenticate','Basic realm="Área de staff"').send('Unauthorized');
+  const creds = Buffer.from(auth.split(' ')[1], 'base64').toString();
+  if (creds !== `${user}:${pass}`) return res.status(403).send('Forbidden');
+  next();
 }
 
 // ── MENÚ ──────────────────────────────────────────────────────────────────────
@@ -51,20 +68,24 @@ app.post('/api/pedidos', (req, res) => {
   `);
 
   const insertItem = db.prepare(`
-    INSERT INTO pedido_items (pedido_id, item_id, nombre, precio, cantidad, notas)
-    VALUES (@pedido_id, @item_id, @nombre, @precio, @cantidad, @notas)
+    INSERT INTO pedido_items (pedido_id, item_id, nombre, precio, cantidad, notas, estacion)
+    VALUES (@pedido_id, @item_id, @nombre, @precio, @cantidad, @notas, @estacion)
   `);
 
   const crearPedido = db.transaction(() => {
     const { lastInsertRowid } = insertPedido.run({ numero_pedido, nombre_cliente: nombre_cliente.trim(), mesa: mesa.trim(), total });
-    items.forEach(i => insertItem.run({
-      pedido_id: lastInsertRowid,
-      item_id:   i.id,
-      nombre:    i.nombre,
-      precio:    i.precio,
-      cantidad:  i.cantidad,
-      notas:     i.notas || '',
-    }));
+    items.forEach(i => {
+      const menuInfo = db.prepare('SELECT estacion FROM menu_items WHERE id = ?').get(i.id) || { estacion: 'cocina' };
+      insertItem.run({
+        pedido_id: lastInsertRowid,
+        item_id:   i.id,
+        nombre:    i.nombre,
+        precio:    i.precio,
+        cantidad:  i.cantidad,
+        notas:     i.notas || '',
+        estacion:  menuInfo.estacion || 'cocina',
+      });
+    });
     return lastInsertRowid;
   });
 
@@ -111,6 +132,26 @@ app.patch('/api/pedidos/:id/estado', (req, res) => {
   updated.items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(req.params.id);
   res.json({ ok: true });
   sendSseEvent({ tipo: 'pedido_actualizado', pedido: updated });
+});
+
+// Marcar/unmarcar item como preparado
+app.patch('/api/pedido_items/:id/preparado', basicAuth, (req, res) => {
+  const { preparado } = req.body;
+  db.prepare('UPDATE pedido_items SET preparado = ? WHERE id = ?').run(preparado ? 1 : 0, req.params.id);
+  const item = db.prepare('SELECT * FROM pedido_items WHERE id = ?').get(req.params.id);
+  const pedido = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(item.pedido_id);
+  pedido.items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(pedido.id);
+  sendSseEvent({ tipo: 'item_actualizado', item, pedido });
+  res.json({ ok: true });
+});
+
+// Vista imprimible de un pedido
+app.get('/print/pedido/:id', (req, res) => {
+  const p = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(req.params.id);
+  if (!p) return res.status(404).send('Pedido no encontrado');
+  const items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(p.id);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pedido ${p.numero_pedido}</title><style>body{font-family:Segoe UI,Arial;} .h{font-weight:800}</style></head><body><h2>Pedido ${p.numero_pedido}</h2><div>Cliente: ${p.nombre_cliente} · Mesa: ${p.mesa}</div><div>Fecha: ${p.creado_en}</div><hr><div>${items.map(i=>`<div>${i.cantidad}× ${i.nombre} ${i.notas?`<div style="font-size:0.9rem;color:#666">📝 ${i.notas}</div>`:''}</div>`).join('')}</div><hr><h3>Total: $${p.total.toLocaleString('es-CO')}</h3><script>window.onload=()=>setTimeout(()=>{window.print();},300);</script></body></html>`;
+  res.send(html);
 });
 
 // Endpoint SSE para actualizaciones en tiempo real
