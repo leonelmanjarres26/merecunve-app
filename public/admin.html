@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merecunve — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f5f7;
+      color: #222;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
+    header a  {
+      color: #fff;
+      font-size: 0.82rem;
+      text-decoration: none;
+      opacity: 0.75;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 5px 12px;
+      border-radius: 8px;
+    }
+
+    main { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── TARJETAS STATS ── */
+    #stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 26px;
+    }
+
+    .stat-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    .stat-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 1.7rem; font-weight: 800; margin-top: 4px; color: #1a1a2e; }
+    .stat-card.rojo .value { color: #c0392b; }
+
+    /* ── SECCIÓN PEDIDOS ── */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* ── FILTROS ── */
+    #filtros {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    #filtros input, #filtros select {
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 0.85rem;
+      outline: none;
+      background: #fff;
+    }
+    #filtros input:focus, #filtros select:focus { border-color: #c0392b; }
+
+    /* ── TABLA / TARJETAS PEDIDOS ── */
+    #lista-pedidos {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pedido-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .pedido-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pedido-id   { font-size: 1rem; font-weight: 800; color: #1a1a2e; }
+    .pedido-meta { font-size: 0.8rem; color: #888; margin-top: 2px; }
+
+    .estado-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: capitalize;
+      white-space: nowrap;
+    }
+    .estado-pendiente     { background: #fff3cd; color: #856404; }
+    .estado-en-preparación { background: #cfe2ff; color: #0a58ca; }
+    .estado-listo         { background: #d1e7dd; color: #0f5132; }
+    .estado-entregado     { background: #e2e3e5; color: #383d41; }
+    .estado-cancelado     { background: #f8d7da; color: #842029; }
+
+    .pedido-items {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 10px;
+    }
+
+    .pi-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+    .pi-row .qty  { color: #888; min-width: 26px; }
+    .pi-row .nom  { flex: 1; }
+    .pi-row .sub  { font-weight: 600; color: #1a1a2e; white-space: nowrap; }
+    .pi-nota      { font-size: 0.75rem; color: #aaa; margin-left: 34px; font-style: italic; }
+
+    .pedido-footer {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pedido-total { font-size: 1rem; font-weight: 800; color: #c0392b; }
+
+    .cambiar-estado {
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.82rem;
+      background: #fff;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* ── TOP ITEMS ── */
+    #top-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .top-item {
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .top-item .rank   { font-size: 1.1rem; min-width: 28px; }
+    .top-item .ti-nom { flex: 1; font-size: 0.88rem; font-weight: 600; }
+    .top-item .ti-num { font-size: 0.82rem; color: #888; }
+    .top-item .ti-ing { font-size: 0.88rem; font-weight: 700; color: #c0392b; }
+
+    /* ── VACÍO ── */
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #bbb;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MERECUNVE · Admin</h1>
+    <a href="/">← Ver menú</a>
+  </header>
+
+  <main>
+    <!-- STATS HOY -->
+    <div id="stats-grid">
+      <div class="stat-card rojo">
+        <div class="label">Ingresos hoy</div>
+        <div class="value" id="s-ingresos">$0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pedidos hoy</div>
+        <div class="value" id="s-pedidos">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Pendientes</div>
+        <div class="value" id="s-pendientes">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Entregados</div>
+        <div class="value" id="s-entregados">0</div>
+      </div>
+    </div>
+
+    <!-- TOP ÍTEMS -->
+    <div style="margin-bottom:26px">
+      <p class="section-title">🏆 Más pedidos hoy</p>
+      <div id="top-items-list"><div class="empty">Sin datos aún</div></div>
+    </div>
+
+    <!-- PEDIDOS -->
+    <p class="section-title">
+      📋 Pedidos
+      <button onclick="cargarPedidos()" style="background:#f0f0f0;border:none;border-radius:8px;padding:4px 12px;font-size:0.8rem;cursor:pointer;">↻ Actualizar</button>
+    </p>
+
+    <div id="filtros">
+      <input type="date" id="f-fecha" onchange="cargarPedidos()" />
+      <select id="f-estado" onchange="cargarPedidos()">
+        <option value="">Todos los estados</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="en preparación">En preparación</option>
+        <option value="listo">Listo</option>
+        <option value="entregado">Entregado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+    </div>
+
+    <div id="lista-pedidos"></div>
+  </main>
+
+  <script>
+    const ESTADOS = ['pendiente', 'en preparación', 'listo', 'entregado', 'cancelado'];
+    const MEDALJAS = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+
+    function fmt(n) {
+      return '$' + n.toLocaleString('es-CO');
+    }
+
+    function claseEstado(e) {
+      return 'estado-' + e.replace(' ', '-');
+    }
+
+    // ── Stats ──────────────────────────────────────────────
+    async function cargarStats() {
+      const res  = await fetch('/api/stats');
+      const data = await res.json();
+
+      document.getElementById('s-ingresos').textContent  = fmt(data.totalHoy);
+      document.getElementById('s-pedidos').textContent   = data.pedidosHoy;
+
+      const pend = data.porEstado.find(e => e.estado === 'pendiente');
+      const entr = data.porEstado.find(e => e.estado === 'entregado');
+      document.getElementById('s-pendientes').textContent = pend ? pend.n : 0;
+      document.getElementById('s-entregados').textContent = entr ? entr.n : 0;
+
+      const top = document.getElementById('top-items-list');
+      if (!data.topItems.length) {
+        top.innerHTML = '<div class="empty">Sin pedidos hoy</div>';
+      } else {
+        top.innerHTML = data.topItems.map((item, idx) => `
+          <div class="top-item">
+            <span class="rank">${MEDALJAS[idx]}</span>
+            <span class="ti-nom">${item.nombre}</span>
+            <span class="ti-num">${item.vendidos} uds</span>
+            <span class="ti-ing">${fmt(item.ingresos)}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // ── Pedidos ────────────────────────────────────────────
+    async function cargarPedidos() {
+      const fecha  = document.getElementById('f-fecha').value;
+      const estado = document.getElementById('f-estado').value;
+
+      const params = new URLSearchParams();
+      if (fecha)  params.set('fecha', fecha);
+      if (estado) params.set('estado', estado);
+
+      const res     = await fetch('/api/pedidos?' + params);
+      const pedidos = await res.json();
+
+      const cont = document.getElementById('lista-pedidos');
+      if (!pedidos.length) {
+        cont.innerHTML = '<div class="empty">No hay pedidos con esos filtros</div>';
+        return;
+      }
+
+      cont.innerHTML = pedidos.map(p => `
+        <div class="pedido-card" id="card-${p.id}">
+          <div class="pedido-top">
+            <div>
+              <div class="pedido-id">${p.numero_pedido}</div>
+              <div class="pedido-meta">
+                👤 ${p.nombre_cliente} &nbsp;|&nbsp; 🪑 Mesa ${p.mesa}
+                &nbsp;|&nbsp; 🕐 ${new Date(p.creado_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}
+              </div>
+            </div>
+            <span class="estado-badge ${claseEstado(p.estado)}">${p.estado}</span>
+          </div>
+
+          <div class="pedido-items">
+            ${p.items.map(i => `
+              <div class="pi-row">
+                <span class="qty">${i.cantidad}×</span>
+                <span class="nom">${i.nombre}</span>
+                <span class="sub">${fmt(i.precio * i.cantidad)}</span>
+              </div>
+              ${i.notas ? `<div class="pi-nota">📝 ${i.notas}</div>` : ''}
+            `).join('')}
+          </div>
+
+          <div class="pedido-footer">
+            <span class="pedido-total">${fmt(p.total)}</span>
+            <select class="cambiar-estado" onchange="cambiarEstado(${p.id}, this.value)">
+              ${ESTADOS.map(e => `<option value="${e}" ${e === p.estado ? 'selected' : ''}>${e}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cambiarEstado(id, estado) {
+      await fetch(`/api/pedidos/${id}/estado`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ estado }),
+      });
+      cargarStats();
+    }
+
+    // ── Fecha por defecto = hoy ────────────────────────────
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('f-fecha').value = hoy;
+
+    // Auto-refresh cada 30 s
+    cargarStats();
+    cargarPedidos();
+    setInterval(() => { cargarStats(); cargarPedidos(); }, 30000);
+  </script>
+</body>
+</html>

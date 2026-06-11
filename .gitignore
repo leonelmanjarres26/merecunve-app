@@ -1,0 +1,5 @@
+node_modules/
+db/merecunve.db
+db/merecunve.db-shm
+db/merecunve.db-wal
+.env

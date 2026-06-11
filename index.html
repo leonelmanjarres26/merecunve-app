@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RestApp</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100vh;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #e63946;
+      color: #fff;
+      padding: 18px 20px 14px;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header p  { font-size: 0.82rem; opacity: 0.85; margin-top: 2px; }
+
+    /* ── CATEGORÍAS ── */
+    #categorias {
+      display: flex;
+      gap: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      background: #fff;
+      border-bottom: 1px solid #eee;
+    }
+    #categorias::-webkit-scrollbar { display: none; }
+
+    .cat-btn {
+      white-space: nowrap;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 2px solid #e63946;
+      background: transparent;
+      color: #e63946;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .cat-btn.activo {
+      background: #e63946;
+      color: #fff;
+    }
+
+    /* ── MENÚ ── */
+    #menu {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      padding-bottom: 100px;
+    }
+
+    .item-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .item-emoji {
+      font-size: 2.4rem;
+      min-width: 52px;
+      text-align: center;
+    }
+
+    .item-info { flex: 1; }
+    .item-info h3 { font-size: 0.95rem; font-weight: 700; color: #222; }
+    .item-info p  { font-size: 0.78rem; color: #888; margin-top: 2px; }
+    .item-price   { font-size: 0.95rem; font-weight: 700; color: #e63946; margin-top: 4px; }
+
+    .btn-agregar {
+      background: #e63946;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: 0.15s;
+    }
+    .btn-agregar:active { transform: scale(0.9); }
+
+    /* ── CARRITO FLOTANTE ── */
+    #carrito-btn {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 398px;
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 10;
+      transition: 0.2s;
+    }
+    #carrito-btn:active { transform: translateX(-50%) scale(0.98); }
+    #carrito-btn .badge {
+      background: #e63946;
+      color: #fff;
+      border-radius: 8px;
+      padding: 2px 10px;
+      font-size: 0.85rem;
+    }
+    #carrito-btn.oculto { display: none; }
+
+    /* ── PANEL CARRITO ── */
+    #panel-carrito {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 20;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      transition: 0.25s;
+    }
+    #panel-carrito.oculto { display: none; }
+
+    #carrito-sheet {
+      width: 100%;
+      max-width: 430px;
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .sheet-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .btn-cerrar {
+      background: #f0f0f0;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #lista-carrito {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .carrito-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .carrito-item .ci-emoji { font-size: 1.6rem; min-width: 36px; text-align: center; }
+    .carrito-item .ci-info  { flex: 1; }
+    .carrito-item .ci-info h4 { font-size: 0.9rem; font-weight: 600; }
+    .carrito-item .ci-info span { font-size: 0.8rem; color: #888; }
+
+    .ci-controles {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ci-controles button {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #f9f9f9;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .ci-controles .qty { font-weight: 700; min-width: 18px; text-align: center; font-size: 0.9rem; }
+
+    .sheet-footer {
+      padding: 16px 20px 28px;
+      border-top: 1px solid #eee;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .btn-pedir {
+      width: 100%;
+      background: #e63946;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-pedir:active { transform: scale(0.98); }
+
+    /* ── PANTALLA CONFIRMACIÓN ── */
+    #pantalla-confirmacion {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    #pantalla-confirmacion.oculto { display: none; }
+    #pantalla-confirmacion .check { font-size: 5rem; }
+    #pantalla-confirmacion h2 { font-size: 1.5rem; font-weight: 800; color: #222; }
+    #pantalla-confirmacion p  { font-size: 0.95rem; color: #666; line-height: 1.5; }
+    #pantalla-confirmacion .numero-pedido {
+      background: #fff3f4;
+      color: #e63946;
+      font-size: 1.3rem;
+      font-weight: 800;
+      padding: 10px 28px;
+      border-radius: 12px;
+    }
+    .btn-nuevo-pedido {
+      margin-top: 8px;
+      background: #e63946;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 32px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header>
+    <h1>🍽️ RestApp</h1>
+    <p>Haz tu pedido fácil y rápido</p>
+  </header>
+
+  <!-- CATEGORÍAS -->
+  <div id="categorias"></div>
+
+  <!-- MENÚ -->
+  <div id="menu"></div>
+
+  <!-- BOTÓN CARRITO FLOTANTE -->
+  <button id="carrito-btn" class="oculto" onclick="abrirCarrito()">
+    <span>🛒 Ver pedido</span>
+    <span class="badge" id="carrito-badge">0</span>
+  </button>
+
+  <!-- PANEL CARRITO -->
+  <div id="panel-carrito" class="oculto" onclick="cerrarSiFondo(event)">
+    <div id="carrito-sheet">
+      <div class="sheet-header">
+        <h2>Tu pedido</h2>
+        <button class="btn-cerrar" onclick="cerrarCarrito()">✕</button>
+      </div>
+      <div id="lista-carrito"></div>
+      <div class="sheet-footer">
+        <div class="total-row">
+          <span>Total</span>
+          <span id="total-precio">$0</span>
+        </div>
+        <button class="btn-pedir" onclick="confirmarPedido()">Confirmar pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRMACIÓN -->
+  <div id="pantalla-confirmacion" class="oculto">
+    <div class="check">✅</div>
+    <h2>¡Pedido recibido!</h2>
+    <p>Tu pedido está siendo preparado.<br>Te llamaremos cuando esté listo.</p>
+    <div class="numero-pedido" id="numero-pedido">Pedido #000</div>
+    <button class="btn-nuevo-pedido" onclick="nuevoPedido()">Hacer otro pedido</button>
+  </div>
+</div>
+
+<script>
+  const MENU = [
+    // Entradas
+    { id: 1, cat: "Entradas",   emoji: "🥗", nombre: "Ensalada César",       desc: "Lechuga, crutones y aderezo",     precio: 12000 },
+    { id: 2, cat: "Entradas",   emoji: "🍲", nombre: "Sopa del día",          desc: "Crema de tomate casera",          precio: 9000  },
+    { id: 3, cat: "Entradas",   emoji: "🧆", nombre: "Patacones con hogao",   desc: "Plátano verde frito con salsa",   precio: 8000  },
+    // Platos
+    { id: 4, cat: "Platos",     emoji: "🍗", nombre: "Pollo a la plancha",    desc: "Con arroz y ensalada",            precio: 22000 },
+    { id: 5, cat: "Platos",     emoji: "🥩", nombre: "Lomo de res",           desc: "Con papas fritas y chimichurri", precio: 28000 },
+    { id: 6, cat: "Platos",     emoji: "🐟", nombre: "Filete de pescado",     desc: "Al limón con verduras al vapor", precio: 25000 },
+    { id: 7, cat: "Platos",     emoji: "🍝", nombre: "Pasta boloñesa",        desc: "Pasta con carne molida",          precio: 18000 },
+    // Bebidas
+    { id: 8, cat: "Bebidas",    emoji: "🧃", nombre: "Jugo natural",          desc: "Mango, maracuyá o guanábana",    precio: 6000  },
+    { id: 9, cat: "Bebidas",    emoji: "☕", nombre: "Café americano",        desc: "Café de origen colombiano",      precio: 4000  },
+    { id:10, cat: "Bebidas",    emoji: "🥤", nombre: "Gaseosa",               desc: "Coca-Cola, Sprite o agua",       precio: 3500  },
+    // Postres
+    { id:11, cat: "Postres",    emoji: "🍮", nombre: "Flan de caramelo",      desc: "Casero, cremoso y suave",         precio: 8000  },
+    { id:12, cat: "Postres",    emoji: "🍰", nombre: "Torta de chocolate",    desc: "Con helado de vainilla",          precio: 10000 },
+  ];
+
+  let carrito = {};   // { id: cantidad }
+  let categoriaActiva = "Entradas";
+
+  const categorias = [...new Set(MENU.map(i => i.cat))];
+
+  // ── Renderizar categorías ──────────────────────────────
+  function renderCategorias() {
+    const el = document.getElementById("categorias");
+    el.innerHTML = categorias.map(c =>
+      `<button class="cat-btn ${c === categoriaActiva ? 'activo' : ''}"
+               onclick="selCat('${c}')">${c}</button>`
+    ).join("");
+  }
+
+  function selCat(cat) {
+    categoriaActiva = cat;
+    renderCategorias();
+    renderMenu();
+  }
+
+  // ── Renderizar menú ────────────────────────────────────
+  function renderMenu() {
+    const items = MENU.filter(i => i.cat === categoriaActiva);
+    document.getElementById("menu").innerHTML = items.map(i => `
+      <div class="item-card">
+        <div class="item-emoji">${i.emoji}</div>
+        <div class="item-info">
+          <h3>${i.nombre}</h3>
+          <p>${i.desc}</p>
+          <div class="item-price">${formatPrecio(i.precio)}</div>
+        </div>
+        <button class="btn-agregar" onclick="agregarItem(${i.id})">+</button>
+      </div>
+    `).join("");
+  }
+
+  // ── Carrito ────────────────────────────────────────────
+  function agregarItem(id) {
+    carrito[id] = (carrito[id] || 0) + 1;
+    actualizarBadge();
+  }
+
+  function cambiarCantidad(id, delta) {
+    carrito[id] = (carrito[id] || 0) + delta;
+    if (carrito[id] <= 0) delete carrito[id];
+    actualizarBadge();
+    renderCarrito();
+  }
+
+  function actualizarBadge() {
+    const total = Object.values(carrito).reduce((a, b) => a + b, 0);
+    const btn = document.getElementById("carrito-btn");
+    document.getElementById("carrito-badge").textContent = total;
+    btn.classList.toggle("oculto", total === 0);
+  }
+
+  function renderCarrito() {
+    const ids = Object.keys(carrito);
+    if (ids.length === 0) {
+      cerrarCarrito();
+      return;
+    }
+
+    let html = "";
+    let totalPrecio = 0;
+
+    ids.forEach(id => {
+      const item = MENU.find(i => i.id === Number(id));
+      const qty  = carrito[id];
+      totalPrecio += item.precio * qty;
+      html += `
+        <div class="carrito-item">
+          <div class="ci-emoji">${item.emoji}</div>
+          <div class="ci-info">
+            <h4>${item.nombre}</h4>
+            <span>${formatPrecio(item.precio)}</span>
+          </div>
+          <div class="ci-controles">
+            <button onclick="cambiarCantidad(${id}, -1)">−</button>
+            <span class="qty">${qty}</span>
+            <button onclick="cambiarCantidad(${id}, +1)">+</button>
+          </div>
+        </div>`;
+    });
+
+    document.getElementById("lista-carrito").innerHTML = html;
+    document.getElementById("total-precio").textContent = formatPrecio(totalPrecio);
+  }
+
+  function abrirCarrito() {
+    renderCarrito();
+    document.getElementById("panel-carrito").classList.remove("oculto");
+  }
+
+  function cerrarCarrito() {
+    document.getElementById("panel-carrito").classList.add("oculto");
+  }
+
+  function cerrarSiFondo(e) {
+    if (e.target.id === "panel-carrito") cerrarCarrito();
+  }
+
+  // ── Confirmar pedido ───────────────────────────────────
+  function confirmarPedido() {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    document.getElementById("numero-pedido").textContent = `Pedido #${num}`;
+    cerrarCarrito();
+    document.getElementById("pantalla-confirmacion").classList.remove("oculto");
+  }
+
+  function nuevoPedido() {
+    carrito = {};
+    actualizarBadge();
+    document.getElementById("pantalla-confirmacion").classList.add("oculto");
+  }
+
+  // ── Utilidades ─────────────────────────────────────────
+  function formatPrecio(n) {
+    return "$" + n.toLocaleString("es-CO");
+  }
+
+  // ── Init ───────────────────────────────────────────────
+  renderCategorias();
+  renderMenu();
+</script>
+</body>
+</html>
