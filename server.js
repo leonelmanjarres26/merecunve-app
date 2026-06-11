@@ -9,6 +9,17 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Servir lanzador en raíz
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Servir cliente en /app
+app.get('/app', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Archivos estáticos públicos
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -57,7 +68,7 @@ app.patch('/api/menu/:id/disponibilidad', (req, res) => {
 app.post('/api/pedidos', (req, res) => {
   const { nombre_cliente, mesa, items } = req.body;
 
-  if (!nombre_cliente?.trim() || !mesa?.trim() || !Array.isArray(items) || items.length === 0) {
+  if (!nombre_cliente?.trim() || !mesa || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Datos incompletos' });
   }
 
@@ -75,7 +86,7 @@ app.post('/api/pedidos', (req, res) => {
   `);
 
   const crearPedido = db.transaction(() => {
-    const { lastInsertRowid } = insertPedido.run({ numero_pedido, nombre_cliente: nombre_cliente.trim(), mesa: mesa.trim(), total });
+    const { lastInsertRowid } = insertPedido.run({ numero_pedido, nombre_cliente: nombre_cliente.trim(), mesa: parseInt(mesa), total });
     items.forEach(i => {
       const menuInfo = db.prepare('SELECT estacion FROM menu_items WHERE id = ?').get(i.id) || { estacion: 'cocina' };
       insertItem.run({
@@ -203,7 +214,7 @@ app.get('/api/stats', (req, res) => {
   const totalHoy    = db.prepare("SELECT COALESCE(SUM(total),0) as v FROM pedidos WHERE DATE(creado_en)=? AND estado!='cancelado'").get(hoy);
   const pedidosHoy  = db.prepare("SELECT COUNT(*) as v FROM pedidos WHERE DATE(creado_en)=?").get(hoy);
   const topItems    = db.prepare(`
-    SELECT pi.nombre, pi.emoji, SUM(pi.cantidad) as vendidos, SUM(pi.precio*pi.cantidad) as ingresos
+    SELECT pi.nombre, SUM(pi.cantidad) as vendidos, SUM(pi.precio*pi.cantidad) as ingresos
     FROM pedido_items pi
     JOIN pedidos p ON p.id = pi.pedido_id
     WHERE DATE(p.creado_en)=? AND p.estado!='cancelado'

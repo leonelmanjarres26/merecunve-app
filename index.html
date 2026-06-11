@@ -44,7 +44,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid #f0f0f0;padding-top:10px">
         <label for="target">O elige:</label>
         <select id="target" class="small">
-          <option value="/">Cliente (menú)</option>
+          <option value="/app">Cliente (menú)</option>
           <option value="/admin.html">Admin</option>
           <option value="/recepcion.html">Recepción</option>
           <option value="/cocina.html">Cocina</option>
@@ -112,7 +112,7 @@
       openUrl(path, mode);
     });
 
-    document.getElementById('openClient').addEventListener('click', ()=> openUrl('/', defaultMode));
+    document.getElementById('openClient').addEventListener('click', ()=> openUrl('/app', defaultMode));
     document.getElementById('openAdmin').addEventListener('click', ()=> openUrl('/admin.html', defaultMode));
     document.getElementById('openRecep').addEventListener('click', ()=> openUrl('/recepcion.html', defaultMode));
     document.getElementById('openKitchen').addEventListener('click', ()=> openUrl('/cocina.html', defaultMode));
