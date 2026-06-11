@@ -397,18 +397,54 @@
 <div id="toast"></div>
 
 <script>
-  let MENU_DATA = [];
+  // Diagnostics: show JS errors in-page for easier debugging
+  (function(){
+    const dbg = document.createElement('div');
+    dbg.id = 'js-debug';
+    dbg.style.position = 'fixed'; dbg.style.right = '12px'; dbg.style.top = '12px'; dbg.style.background = 'rgba(0,0,0,0.8)'; dbg.style.color='#fff'; dbg.style.padding='8px 10px'; dbg.style.borderRadius='8px'; dbg.style.zIndex=9999; dbg.style.maxWidth='320px'; dbg.style.fontSize='13px'; dbg.style.display='none';
+    document.body.appendChild(dbg);
+    window.showDebug = function(msg){ dbg.textContent = msg; dbg.style.display = 'block'; };
+    window.hideDebug = function(){ dbg.style.display = 'none'; };
+    window.onerror = function(msg, src, line, col, err){
+      const text = `${msg} at ${src}:${line}:${col}`;
+      console.error(text, err);
+      showDebug(text);
+    };
+    window.addEventListener('unhandledrejection', e=>{ console.error('UnhandledRejection', e.reason); showDebug('Promise rejection: '+(e.reason && e.reason.message ? e.reason.message : JSON.stringify(e.reason))); });
+  })();
+
+  let MENU_DATA = [];    
   let carrito = {};          // { id: { item, cantidad, notas } }
   let categoriaActiva = '';
 
   // ── Carga inicial ──────────────────────────────────────
   async function init() {
-    const res  = await fetch('/api/menu');
-    MENU_DATA  = await res.json();
-    const cats = [...new Set(MENU_DATA.map(i => i.categoria))];
-    categoriaActiva = cats[0] || '';
-    renderCategorias();
-    renderMenu();
+    try {
+      const res  = await fetch('/api/menu');
+      if (!res.ok) throw new Error('No response');
+      MENU_DATA  = await res.json();
+      const cats = [...new Set(MENU_DATA.map(i => i.categoria))];
+      categoriaActiva = cats[0] || '';
+      renderCategorias();
+      renderMenu();
+    } catch (err) {
+      console.error('No se pudo cargar el menú desde /api/menu', err);
+      showDebug('No se pudo conectar al servidor. Abre la app por http://localhost:3000 o inicia el servidor con node server.js');
+      // mostrar advertencia en la UI para usuarios que abren el archivo localmente
+      if (!document.getElementById('server-warning')) {
+        const warn = document.createElement('div');
+        warn.id = 'server-warning';
+        warn.style.background = '#fff4f0';
+        warn.style.border = '1px solid #ffd2c2';
+        warn.style.color = '#80311b';
+        warn.style.padding = '12px';
+        warn.style.margin = '12px';
+        warn.style.borderRadius = '10px';
+        warn.innerHTML = `No se detecta el servidor en <strong>http://localhost:3000</strong>.\n Asegúrate de ejecutar <code>node server.js</code> y luego pulsa <a href="/" target="_blank">Abrir app</a>.`;
+        const app = document.getElementById('app');
+        app.insertBefore(warn, app.firstChild);
+      }
+    }
   }
 
   // ── Categorías ─────────────────────────────────────────

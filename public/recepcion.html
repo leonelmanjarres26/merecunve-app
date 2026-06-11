@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Merecunve — Recepción</title>
   <style>
+    .hidden{display:none !important}
     body{font-family:Segoe UI, sans-serif;background:#f4f5f7;color:#222}
     header{background:#1a1a2e;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
     header a{color:#fff;text-decoration:none;margin-left:10px}
@@ -27,10 +28,16 @@
 <body>
   <header>
     <div>📟 MERECUNVE · Recepción</div>
-    <div>
-      <a href="/">Menú</a>
-      <a href="/admin.html">Admin</a>
-      <a href="/cocina.html">Cocina</a>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div>
+        <a href="/">Menú</a>
+        <a href="/admin.html">Admin</a>
+        <a href="/cocina.html">Cocina</a>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="token-info" style="color:#fff;opacity:0.9"></span>
+        <button class="btn" onclick="logout()">Cerrar sesión</button>
+      </div>
     </div>
   </header>
 
@@ -56,6 +63,21 @@
 
     <div id="lista-pedidos"></div>
   </main>
+
+  <!-- Login modal (shared) -->
+  <div id="login-modal" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4)">
+    <div style="background:#fff;padding:18px;border-radius:10px;min-width:280px">
+      <h3 style="margin-bottom:8px">Login staff</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="login-user" placeholder="Usuario" />
+        <input id="login-pass" type="password" placeholder="Contraseña" />
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+          <button class="btn" onclick="document.getElementById('login-modal').classList.add('hidden')">Cancelar</button>
+          <button class="btn" onclick="loginSubmit()">Entrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     function fmt(n){return '$' + n.toLocaleString('es-CO')}
@@ -122,6 +144,34 @@
         catch(err){}
       };
     } catch(err){}
+
+    // Auth helpers for recepcion
+    function authToken(){ return localStorage.getItem('token'); }
+    function authFetch(url, opts={}){ opts.headers = opts.headers || {}; const t = authToken(); if(t) opts.headers.Authorization = 'Bearer ' + t; return fetch(url, opts); }
+
+    function showLogin(){ document.getElementById('login-modal').classList.remove('hidden'); }
+    async function loginSubmit(){
+      const user = document.getElementById('login-user').value;
+      const pass = document.getElementById('login-pass').value;
+      try{
+        const r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})});
+        if (!r.ok) return alert('Credenciales inválidas');
+        const d = await r.json();
+        localStorage.setItem('token', d.token);
+        document.getElementById('login-modal').classList.add('hidden');
+        alert('Login exitoso');
+      } catch(e){ alert('Error'); }
+    }
+
+    // JWT helpers: parse and show expiry
+    function parseJwt(token){ try{ const p = token.split('.')[1]; return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); }catch(e){return null} }
+    function fmtRemaining(s){ if(s<=0) return 'expirado'; const m = Math.floor(s/60); const sec = s%60; return `${m}m ${sec}s`; }
+    function updateAuthUI(){ const t = authToken(); const el = document.getElementById('token-info'); if(!el) return; if(!t){ el.textContent = ''; return; } const p = parseJwt(t); if(!p || !p.exp){ el.textContent='Autenticado'; return; } const rem = Math.max(0, Math.floor(p.exp - Date.now()/1000)); el.textContent = 'Sesión: ' + fmtRemaining(rem); if(rem<=0){ localStorage.removeItem('token'); alert('La sesión ha expirado'); el.textContent=''; }}
+    setInterval(updateAuthUI, 5000);
+    updateAuthUI();
+
+    // helper to open print page (no auth needed)
+    function imprimir(id){ window.open('/print/pedido/' + id, '_blank'); }
   </script>
 </body>
 </html>

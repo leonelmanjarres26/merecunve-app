@@ -6,6 +6,7 @@
   <title>Merecunve — Admin</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden{display:none !important}
 
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -195,10 +196,16 @@
 <body>
   <header>
     <h1>MERECUNVE · Admin</h1>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <a href="/">← Ver menú</a>
-      <a href="/recepcion.html">Recepción</a>
-      <a href="/cocina.html">Cocina</a>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div style="display:flex;gap:8px;align-items:center">
+        <a href="/">← Ver menú</a>
+        <a href="/recepcion.html">Recepción</a>
+        <a href="/cocina.html">Cocina</a>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="token-info" style="color:#fff;opacity:0.9"></span>
+        <button class="btn" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:#fff" onclick="logout()">Cerrar sesión</button>
+      </div>
     </div>
   </header>
 
@@ -251,6 +258,80 @@
   </main>
 
   <script>
+    // --- Auth helpers ---
+    function authToken(){ return localStorage.getItem('token'); }
+    function authFetch(url, opts={}){
+      opts.headers = opts.headers || {};
+      const t = authToken();
+      if (t) opts.headers.Authorization = 'Bearer ' + t;
+      return fetch(url, opts);
+    }
+
+    function showLogin(){ document.getElementById('login-modal').classList.remove('hidden'); }
+
+    function logout(){ localStorage.removeItem('token'); alert('Logout'); }
+
+    // --- Menu station editor ---
+    async function cargarMenu(){
+      const res = await fetch('/api/menu');
+      const items = await res.json();
+      const cont = document.getElementById('menu-editor');
+      if(!cont) return;
+      cont.innerHTML = items.map(i=>`<div style="display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f0f0f0"><div style="width:36px">${i.emoji}</div><div style="flex:1">${i.nombre}</div><select data-id="${i.id}"><option value="cocina" ${i.estacion==='cocina'?'selected':''}>Cocina</option><option value="bar" ${i.estacion==='bar'?'selected':''}>Bar</option><option value="postre" ${i.estacion==='postre'?'selected':''}>Postre</option></select><button onclick="guardarEstacion(${i.id}, this)">Guardar</button></div>`).join('');
+    }
+
+    async function guardarEstacion(id, btn){
+      const sel = btn.parentNode.querySelector('select');
+      const estacion = sel.value;
+      const t = authToken();
+      if(!t){ if(confirm('No estás autenticado. Iniciar sesión ahora?')) showLogin(); return; }
+      const res = await authFetch(`/api/menu/${id}/estacion`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({estacion})});
+      if(res.ok){ alert('Actualizado'); cargarMenu(); } else { alert('Error al actualizar'); }
+    }
+
+    // add menu editor container
+    const editorSection = document.createElement('div');
+    editorSection.style.marginTop = '18px';
+    editorSection.innerHTML = `<p class="section-title">🍽️ Menú (editar estación)</p><div style="margin-bottom:8px"><button onclick="cargarMenu()" class="btn">Cargar menú</button> <button onclick="showLogin()" class="btn">Login</button> <button onclick="logout()" class="btn">Logout</button></div><div id="menu-editor"><div class="empty">Presiona "Cargar menú"</div></div>`;
+    document.querySelector('main').insertBefore(editorSection, document.getElementById('lista-pedidos'));
+
+    // Login modal markup
+    const modalHtml = `
+      <div id="login-modal" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4)" class="hidden">
+        <div style="background:#fff;padding:18px;border-radius:10px;min-width:280px">
+          <h3 style="margin-bottom:8px">Login staff</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input id="login-user" placeholder="Usuario" />
+            <input id="login-pass" type="password" placeholder="Contraseña" />
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+              <button class="btn" onclick="document.getElementById('login-modal').classList.add('hidden')">Cancelar</button>
+              <button class="btn" onclick="loginSubmit()">Entrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    async function loginSubmit(){
+      const user = document.getElementById('login-user').value;
+      const pass = document.getElementById('login-pass').value;
+      try{
+        const r = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})});
+        if (!r.ok) return alert('Credenciales inválidas');
+        const d = await r.json();
+        localStorage.setItem('token', d.token);
+        document.getElementById('login-modal').classList.add('hidden');
+        alert('Login exitoso');
+        cargarMenu();
+      } catch(e){ alert('Error'); }
+    }
+    // JWT helpers: parse and show expiry
+    function parseJwt(token){ try{ const p = token.split('.')[1]; return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/'))); }catch(e){return null} }
+    function fmtRemaining(s){ if(s<=0) return 'expirado'; const m = Math.floor(s/60); const sec = s%60; return `${m}m ${sec}s`; }
+    function updateAuthUI(){ const t = authToken(); const el = document.getElementById('token-info'); if(!el) return; if(!t){ el.textContent = ''; return; } const p = parseJwt(t); if(!p || !p.exp){ el.textContent='Autenticado'; return; } const rem = Math.max(0, Math.floor(p.exp - Date.now()/1000)); el.textContent = 'Sesión: ' + fmtRemaining(rem); if(rem<=0){ localStorage.removeItem('token'); alert('La sesión ha expirado'); el.textContent=''; }}
+    setInterval(updateAuthUI, 5000);
+    updateAuthUI();
     const ESTADOS = ['pendiente', 'en preparación', 'listo', 'entregado', 'cancelado'];
     const MEDALJAS = ['🥇','🥈','🥉','4️⃣','5️⃣'];
 
