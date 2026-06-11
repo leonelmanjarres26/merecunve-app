@@ -230,7 +230,7 @@ app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🍽️  Merecunve corriendo en http://localhost:${PORT}`);
   console.log(`📊  Admin en http://localhost:${PORT}/admin.html\n`);
 });
