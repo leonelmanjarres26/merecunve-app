@@ -10,6 +10,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// SSE clients
+const sseClients = new Set();
+
+function sendSseEvent(obj) {
+  const data = `data: ${JSON.stringify(obj)}\n\n`;
+  for (const res of sseClients) {
+    try { res.write(data); } catch (e) { /* ignore */ }
+  }
+}
+
 // ── MENÚ ──────────────────────────────────────────────────────────────────────
 
 app.get('/api/menu', (req, res) => {
@@ -59,7 +69,11 @@ app.post('/api/pedidos', (req, res) => {
   });
 
   const id = crearPedido();
+  // devolver y notificar a clientes SSE
+  const nuevo = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(id);
+  nuevo.items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(id);
   res.status(201).json({ id, numero_pedido });
+  sendSseEvent({ tipo: 'nuevo_pedido', pedido: nuevo });
 });
 
 app.get('/api/pedidos', (req, res) => {
@@ -93,7 +107,27 @@ app.patch('/api/pedidos/:id/estado', (req, res) => {
   if (!estados.includes(estado)) return res.status(400).json({ error: 'Estado inválido' });
 
   db.prepare('UPDATE pedidos SET estado = ? WHERE id = ?').run(estado, req.params.id);
+  const updated = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(req.params.id);
+  updated.items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(req.params.id);
   res.json({ ok: true });
+  sendSseEvent({ tipo: 'pedido_actualizado', pedido: updated });
+});
+
+// Endpoint SSE para actualizaciones en tiempo real
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  // enviar un ping inicial
+  res.write('retry: 2000\n\n');
+
+  sseClients.add(res);
+
+  req.on('close', () => {
+    sseClients.delete(res);
+  });
 });
 
 // ── ESTADÍSTICAS (inventario) ─────────────────────────────────────────────────
@@ -116,7 +150,7 @@ app.get('/api/stats', (req, res) => {
 });
 
 // ── Fallback ──────────────────────────────────────────────────────────────────
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

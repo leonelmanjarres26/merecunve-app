@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Merecunve — Cocina</title>
+  <style>
+    body{font-family:Segoe UI, sans-serif;background:#f7f7f7;color:#222}
+    header{background:#1a1a2e;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+    header a{color:#fff;text-decoration:none;margin-left:10px}
+    main{max-width:960px;margin:18px auto;padding:12px}
+    .pedido-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+    .pedido-top{display:flex;justify-content:space-between;align-items:center}
+    .estado-badge{padding:6px 12px;border-radius:18px;font-weight:700;text-transform:capitalize}
+    .estado-pendiente{background:#fff3cd;color:#856404}
+    .estado-en-preparación{background:#cfe2ff;color:#0a58ca}
+    .estado-listo{background:#d1e7dd;color:#0f5132}
+    .pi-row{display:flex;gap:8px;align-items:center}
+    .pi-row .qty{min-width:26px;color:#888}
+    .acciones{display:flex;gap:8px}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
+    .btn-primary{background:#0a58ca;color:#fff;border:none}
+    .btn-success{background:#0f5132;color:#fff;border:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div>👩‍🍳 MERECUNVE · Cocina</div>
+    <div>
+      <a href="/">Menú</a>
+      <a href="/admin.html">Admin</a>
+      <a href="/recepcion.html">Recepción</a>
+    </div>
+  </header>
+
+  <main>
+    <p style="color:#666;margin-bottom:10px">Mostrando pedidos pendientes y en preparación. Actualización automática.</p>
+    <div id="lista-pedidos"></div>
+  </main>
+
+  <script>
+    function fmt(n){return '$' + n.toLocaleString('es-CO')}
+
+    async function cargarPedidos(){
+      const res = await fetch('/api/pedidos');
+      const pedidos = await res.json();
+      const visibles = pedidos.filter(p => p.estado === 'pendiente' || p.estado === 'en preparación');
+      const cont = document.getElementById('lista-pedidos');
+      if(!visibles.length){cont.innerHTML = '<div style="padding:40px;text-align:center;color:#bbb">No hay pedidos para la cocina</div>';return}
+
+      cont.innerHTML = visibles.map(p => `
+        <div class="pedido-card" id="card-${p.id}">
+          <div class="pedido-top">
+            <div>
+              <div style="font-weight:800">${p.numero_pedido} · Mesa ${p.mesa}</div>
+              <div style="color:#888;font-size:0.9rem">👤 ${p.nombre_cliente} · ${new Date(p.creado_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</div>
+            </div>
+            <div class="estado-badge estado-${p.estado.replace(' ','-')}">${p.estado}</div>
+          </div>
+          <div style="margin-top:10px">
+            ${p.items.map(i=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><div style="min-width:28px;color:#888">${i.cantidad}×</div><div style="flex:1">${i.nombre}</div><div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div></div>${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('')}
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+            ${p.estado==='pendiente'?`<button class="btn btn-primary" onclick="marcar(${p.id},'en preparación')">Tomar pedido</button>`:''}
+            ${p.estado!=='listo'?`<button class="btn btn-success" onclick="marcar(${p.id},'listo')">Marcar listo</button>`:''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function marcar(id, estado){
+      await fetch(`/api/pedidos/${id}/estado`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado})});
+      cargarPedidos();
+    }
+
+    cargarPedidos();
+    setInterval(cargarPedidos,4000);
+
+    // SSE: actualizaciones en tiempo real
+    try {
+      const es = new EventSource('/api/events');
+      es.onmessage = function(e){
+        try{ const d = JSON.parse(e.data); if(d.tipo){ cargarPedidos(); } }
+        catch(err){}
+      };
+    } catch(err){}
+  </script>
+</body>
+</html>

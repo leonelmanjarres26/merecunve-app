@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merecunve — Recepción</title>
+  <style>
+    body{font-family:Segoe UI, sans-serif;background:#f4f5f7;color:#222}
+    header{background:#1a1a2e;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+    header a{color:#fff;text-decoration:none;margin-left:10px}
+    main{max-width:960px;margin:18px auto;padding:12px}
+    .pedido-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+    .pedido-top{display:flex;justify-content:space-between;align-items:center}
+    .estado-badge{padding:6px 12px;border-radius:18px;font-weight:700;text-transform:capitalize}
+    .estado-pendiente{background:#fff3cd;color:#856404}
+    .estado-en-preparación{background:#cfe2ff;color:#0a58ca}
+    .estado-listo{background:#d1e7dd;color:#0f5132}
+    .estado-entregado{background:#e2e3e5;color:#383d41}
+    .estado-cancelado{background:#f8d7da;color:#842029}
+    .pedido-items{margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px}
+    .pi-row{display:flex;gap:8px;align-items:center}
+    .pi-row .qty{min-width:26px;color:#888}
+    .pedido-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
+  </style>
+</head>
+<body>
+  <header>
+    <div>📟 MERECUNVE · Recepción</div>
+    <div>
+      <a href="/">Menú</a>
+      <a href="/admin.html">Admin</a>
+      <a href="/cocina.html">Cocina</a>
+    </div>
+  </header>
+
+  <main>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+      <input type="date" id="f-fecha" />
+      <select id="f-estado" onchange="cargarPedidos()">
+        <option value="">Todos los estados</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="en preparación">En preparación</option>
+        <option value="listo">Listo</option>
+        <option value="entregado">Entregado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <button class="btn" onclick="cargarPedidos()">↻ Actualizar</button>
+    </div>
+
+    <div id="lista-pedidos"></div>
+  </main>
+
+  <script>
+    function fmt(n){return '$' + n.toLocaleString('es-CO')}
+    function claseEstado(e){return 'estado-' + e.replace(' ', '-')}
+
+    async function cargarPedidos(){
+      const fecha = document.getElementById('f-fecha').value;
+      const estado = document.getElementById('f-estado').value;
+      const params = new URLSearchParams();
+      if(fecha) params.set('fecha', fecha);
+      if(estado) params.set('estado', estado);
+      const res = await fetch('/api/pedidos?' + params);
+      const pedidos = await res.json();
+      const cont = document.getElementById('lista-pedidos');
+      if(!pedidos.length){cont.innerHTML = '<div style="padding:40px;text-align:center;color:#bbb">No hay pedidos</div>';return}
+
+      cont.innerHTML = pedidos.map(p => `
+        <div class="pedido-card" id="card-${p.id}">
+          <div class="pedido-top">
+            <div>
+              <div style="font-weight:800">${p.numero_pedido}</div>
+              <div style="color:#888;font-size:0.9rem">👤 ${p.nombre_cliente} · 🪑 ${p.mesa} · ${new Date(p.creado_en).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</div>
+            </div>
+            <div class="estado-badge ${claseEstado(p.estado)}">${p.estado}</div>
+          </div>
+          <div class="pedido-items">
+            ${p.items.map(i=>`<div class="pi-row"><div class="qty">${i.cantidad}×</div><div style="flex:1">${i.nombre}</div><div style="font-weight:700">${fmt(i.precio*i.cantidad)}</div></div>${i.notas?`<div style="font-size:0.82rem;color:#aaa;margin-left:34px">📝 ${i.notas}</div>`:''}`).join('')}
+          </div>
+          <div class="pedido-footer">
+            <div style="font-weight:800;color:#c0392b">${fmt(p.total)}</div>
+            <div>
+              <select onchange="cambiarEstado(${p.id}, this.value)">
+                <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>pendiente</option>
+                <option value="en preparación" ${p.estado==='en preparación'?'selected':''}>en preparación</option>
+                <option value="listo" ${p.estado==='listo'?'selected':''}>listo</option>
+                <option value="entregado" ${p.estado==='entregado'?'selected':''}>entregado</option>
+                <option value="cancelado" ${p.estado==='cancelado'?'selected':''}>cancelado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cambiarEstado(id, estado){
+      await fetch(`/api/pedidos/${id}/estado`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado})});
+      cargarPedidos();
+    }
+
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('f-fecha').value = hoy;
+    cargarPedidos();
+    setInterval(cargarPedidos, 5000);
+
+    // SSE: actualizaciones en tiempo real
+    try {
+      const es = new EventSource('/api/events');
+      es.onmessage = function(e){
+        try{ const d = JSON.parse(e.data); if(d.tipo){ cargarPedidos(); } }
+        catch(err){}
+      };
+    } catch(err){}
+  </script>
+</body>
+</html>

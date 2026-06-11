@@ -195,7 +195,11 @@
 <body>
   <header>
     <h1>MERECUNVE · Admin</h1>
-    <a href="/">← Ver menú</a>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="/">← Ver menú</a>
+      <a href="/recepcion.html">Recepción</a>
+      <a href="/cocina.html">Cocina</a>
+    </div>
   </header>
 
   <main>
@@ -355,6 +359,14 @@
     cargarStats();
     cargarPedidos();
     setInterval(() => { cargarStats(); cargarPedidos(); }, 30000);
+    // SSE: actualizaciones en tiempo real
+    try {
+      const es = new EventSource('/api/events');
+      es.onmessage = function(e){
+        try{ const d = JSON.parse(e.data); if(d.tipo){ cargarStats(); cargarPedidos(); } }
+        catch(err){}
+      };
+    } catch(err){}
   </script>
 </body>
 </html>
