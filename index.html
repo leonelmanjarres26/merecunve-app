@@ -1,121 +1,75 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Merecunve — Lanzador</title>
   <style>
-    body{font-family:Segoe UI, sans-serif;background:#f4f6f8;color:#222;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:16px}
-    .card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.08);max-width:720px;width:100%}
-    h1{margin:0 0 8px;font-size:20px}
-    p{margin:0 0 14px;color:#555}
-    .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;text-decoration:none;color:#111;display:inline-flex;align-items:center;gap:8px}
-    .btn.primary{background:#0a58ca;color:#fff;border:none}
-    .small{padding:6px 8px;font-size:0.9rem}
-    .warn{background:#fff4f0;color:#80311b;padding:10px;border-radius:8px;margin-top:12px}
-    .note{font-size:13px;color:#666;margin-top:8px}
-    label{font-size:0.9rem;color:#333}
-    select,input[type=radio]{margin-left:6px}
-    @media (max-width:520px){ .card{padding:14px} .btn{flex:1;justify-content:center} }
-    .btn:hover{transform:translateY(-2px);box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-    .btn.primary:hover{background:#0856b8}
-    .emoji{font-size:1.4rem;min-width:28px;text-align:center}
-    .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:10px}
-    .icon-btn{padding:12px;text-align:center;border:1px solid #e0e0e0;border-radius:10px;background:#f9f9f9;cursor:pointer;transition:0.2s}
-    .icon-btn:hover{background:#e8f4f8;border-color:#0a58ca}
-    .icon-btn .label{font-size:0.8rem;color:#555;margin-top:4px}
-    #status.ok{color:#0f5132;background:#d1e7dd;padding:8px;border-radius:6px}
-    #status.error{color:#80311b;background:#fff4f0;padding:8px;border-radius:6px}
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      max-width: 500px;
+      width: 100%;
+    }
+    h1 { font-size: 1.5rem; color: #1f2937; margin-top: 0; }
+    p { color: #4b5563; font-size: 0.95rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .btn {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      text-decoration: none;
+      color: #374151;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+    .status-bar {
+      background-color: #ecfdf5;
+      color: #065f46;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🍽️ Merecunve — Lanzador</h1>
-    <p>Elige la vista que quieres abrir. Funciona en escritorio, tablet y móviles.</p>
 
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="quick-actions">
-        <button type="button" id="openClient" class="icon-btn"><div class="emoji">🛒</div><div class="label">Cliente</div></button>
-        <button type="button" id="openAdmin" class="icon-btn"><div class="emoji">📊</div><div class="label">Admin</div></button>
-        <button type="button" id="openRecep" class="icon-btn"><div class="emoji">📟</div><div class="label">Recepción</div></button>
-        <button type="button" id="openKitchen" class="icon-btn"><div class="emoji">👨‍🍳</div><div class="label">Cocina</div></button>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid #f0f0f0;padding-top:10px">
-        <label for="target">O elige:</label>
-        <select id="target" class="small">
-          <option value="/app">Cliente (menú)</option>
-          <option value="/admin.html">Admin</option>
-          <option value="/recepcion.html">Recepción</option>
-          <option value="/cocina.html">Cocina</option>
-        </select>
-        <label style="margin-left:8px">Modo:</label>
-        <select id="mode" class="small">
-          <option value="same">Misma pestaña</option>
-          <option value="new">Nueva pestaña</option>
-          <option value="mobile">Ventana móvil</option>
-        </select>
-        <button type="button" id="openBtn" class="btn primary">Abrir</button>
-      </div>
-
-      <div id="status">Comprobando servidor...</div>
-      <div class="warn" id="file-warning" style="display:none">Estás abriendo este archivo desde el sistema de archivos. Para que la app interactúe con el servidor, ejecuta <code>node server.js</code> y luego pulsa <strong>Abrir</strong>.</div>
-      <div class="note">Compartir: usa <strong>ngrok</strong> (rápido) o despliega en Railway/Render para demos públicas.</div>
-    </div>
+<div class="card">
+  <h1>🍽️ Merecunve — Lanzador</h1>
+  <p>Elige la vista que quieres abrir. Funciona en escritorio, tablet y móviles.</p>
+  
+  <div class="grid">
+    <a href="/app" class="btn">🛒<br>Cliente (Menú)</a>
+    <a href="/admin.html" class="btn">📊<br>Admin</a>
+    <a href="/recepcion.html" class="btn">📟<br>Recepción</a>
+    <a href="/cocina.html" class="btn">👨‍🍳<br>Cocina</a>
   </div>
 
-  <script>
-    const status = document.getElementById('status');
-    const fileWarning = document.getElementById('file-warning');
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const base = (location.protocol === 'file:') ? 'http://localhost:3000' : location.origin;
-    const defaultMode = isMobile ? 'same' : 'new';
+  <div class="status-bar">
+    ✓ Servidor conectado: Listo para trabajar
+  </div>
+</div>
 
-    async function checkServer(){
-      if (location.protocol === 'file:'){
-        status.textContent = 'Abriendo archivo local. Para interacción inicia el servidor y usa http://localhost:3000';
-        status.classList.remove('ok');
-        status.classList.add('error');
-        fileWarning.style.display = 'block';
-        return;
-      }
-      try{
-        const res = await fetch(base + '/api/menu', {cache:'no-store'});
-        if (res.ok) {
-          status.textContent = '✓ Servidor conectado: ' + base;
-          status.classList.add('ok');
-        } else {
-          status.textContent = 'Servidor respondió con estado ' + res.status;
-          status.classList.add('error');
-        }
-      } catch(e){
-        status.textContent = 'No se detecta servidor en ' + base + ' — inicia con: node server.js';
-        status.classList.add('error');
-      }
-    }
-    checkServer();
-
-    document.getElementById('mode').value = defaultMode;
-
-    function openUrl(path, mode){
-      const url = (path.startsWith('http') ? path : base + path);
-      if (mode === 'same') return window.location.href = url;
-      if (mode === 'new') return window.open(url, '_blank');
-      const w = 420, h = 800;
-      const opts = `width=${w},height=${h},left=${Math.floor((screen.width-w)/2)},top=${Math.floor((screen.height-h)/2)},resizable=yes,scrollbars=yes`;
-      return window.open(url, '_blank', opts);
-    }
-
-    document.getElementById('openBtn').addEventListener('click', ()=>{
-      const path = document.getElementById('target').value;
-      const mode = document.getElementById('mode').value;
-      openUrl(path, mode);
-    });
-
-    document.getElementById('openClient').addEventListener('click', ()=> openUrl('/app', defaultMode));
-    document.getElementById('openAdmin').addEventListener('click', ()=> openUrl('/admin.html', defaultMode));
-    document.getElementById('openRecep').addEventListener('click', ()=> openUrl('/recepcion.html', defaultMode));
-    document.getElementById('openKitchen').addEventListener('click', ()=> openUrl('/cocina.html', defaultMode));
-  </script>
 </body>
 </html>

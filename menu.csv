@@ -1,0 +1,11 @@
+id,nombre,precio,categoria,disponible
+1,Bandeja Paisa Merecunve,25000,Almuerzos,true
+2,Pechuga en Salsa de Champinones,18000,Almuerzos,true
+3,Carne Asada a la Grilla,22000,Almuerzos,true
+4,Jugo Natural de Lulo en Agua,5000,Bebidas,true
+5,Limonada Cerezada Fria,6500,Bebidas,true
+6,Cerveza Club Colombia Dorada,5500,Bebidas,true
+7,Porcion de Patacon con Queso y Hogao,8000,Entradas,true
+8,Empanaditas de Carne (4 und),6000,Entradas,true
+9,Porcion de Papas Criollas Fritas,5000,Entradas,false
+10,Tres Leches Casero,7000,Postres,true

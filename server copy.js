@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
-const fs      = require('fs'); 
 const db      = require('./db/database');
 
 const app  = express();
@@ -51,86 +50,11 @@ function jwtAuth(req, res, next) {
   }
 }
 
-// ── AJUSTE AUTOMÁTICO DE BASE DE DATOS ────────────────────────────────────────
-// Esto evita el error 404 forzando a la base de datos a aceptar emojis y descripciones
-try {
-  db.prepare("ALTER TABLE menu_items ADD COLUMN emoji TEXT DEFAULT '🍽️'").run();
-  db.prepare("ALTER TABLE menu_items ADD COLUMN descripcion TEXT DEFAULT ''").run();
-  console.log("✅ Estructura de base de datos actualizada con éxito.");
-} catch (e) {
-  // Si las columnas ya existían, ignoramos el error y continuamos
-}
-
-// ── MENÚ (Sincronizado desde CSV) ──────────────────────────────────────────────
-
-function sincronizarMenuDesdeCSV() {
-  const rutaCSV = path.join(__dirname, 'menu.csv');
-  
-  if (!fs.existsSync(rutaCSV)) {
-    console.log("⚠️  No se encontró el archivo 'menu.csv'. Se usará el menú alojado en la base de datos.");
-    return;
-  }
-
-  try {
-    const contenido = fs.readFileSync(rutaCSV, 'utf-8');
-    const lineas = contenido.split(/\r?\n/).filter(linea => linea.trim() !== '' && !linea.startsWith('💡'));
-    
-    if (lineas.length <= 1) return; 
-
-    // Limpiar platos anteriores para cargar el día limpio
-    db.prepare('DELETE FROM menu_items').run();
-
-    const ordenarInsercion = db.prepare(`
-      INSERT OR REPLACE INTO menu_items (id, nombre, precio, categoria, disponible, emoji, descripcion)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const transaccion = db.transaction(() => {
-      for (let i = 1; i < lineas.length; i++) {
-        const columnas = lineas[i].split(',');
-        if (columnas.length < 4) continue; 
-
-        const id = parseInt(columnas[0].trim());
-        const nombre = columnas[1].trim();
-        const precio = parseFloat(columnas[2].trim()) || 0;
-        const categoria = columnas[3].trim();
-        const disponible = (columnas[4] && columnas[4].trim().toLowerCase() === 'false') ? 0 : 1;
-
-        // ASIGNACIÓN AUTOMÁTICA DE EMOJIS (Para tu archivo HTML)
-        let emoji = '🍽️'; 
-        const catMin = categoria.toLowerCase();
-        if (catMin.includes('bebida') || catMin.includes('jugo') || catMin.includes('toma') || catMin.includes('cerveza')) {
-          emoji = '🍹';
-        } else if (catMin.includes('postre')) {
-          emoji = '🍰';
-        } else if (catMin.includes('entrada') || catMin.includes('pica')) {
-          emoji = '🥟';
-        }
-
-        const descripcion = "Fresco y preparado al instante"; 
-
-        ordenarInsercion.run(id, nombre, precio, categoria, disponible, emoji, descripcion);
-      }
-    });
-
-    transaccion();
-    console.log(`\n📊 ¡Menú diario de Merecunve sincronizado desde Excel! Todo listo para los celulares.`);
-  } catch (error) {
-    console.error("❌ Error leyendo el menú desde CSV:", error.message);
-  }
-}
-
-// Arrancar la sincronización
-sincronizarMenuDesdeCSV();
+// ── MENÚ ──────────────────────────────────────────────────────────────────────
 
 app.get('/api/menu', (req, res) => {
-  try {
-    const items = db.prepare('SELECT id, nombre, precio, categoria, disponible, emoji, descripcion FROM menu_items WHERE disponible = 1 ORDER BY categoria, id').all();
-    res.json(items);
-  } catch (error) {
-    console.error("Error en GET /api/menu:", error.message);
-    res.status(500).json({ error: "Error interno al cargar el menú" });
-  }
+  const items = db.prepare('SELECT * FROM menu_items WHERE disponible = 1 ORDER BY categoria, id').all();
+  res.json(items);
 });
 
 app.patch('/api/menu/:id/disponibilidad', (req, res) => {
@@ -179,6 +103,7 @@ app.post('/api/pedidos', (req, res) => {
   });
 
   const id = crearPedido();
+  // devolver y notificar a clientes SSE
   const nuevo = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(id);
   nuevo.items = db.prepare('SELECT * FROM pedido_items WHERE pedido_id = ?').all(id);
   res.status(201).json({ id, numero_pedido });
@@ -222,6 +147,7 @@ app.patch('/api/pedidos/:id/estado', (req, res) => {
   sendSseEvent({ tipo: 'pedido_actualizado', pedido: updated });
 });
 
+// Marcar/unmarcar item como preparado
 app.patch('/api/pedido_items/:id/preparado', jwtAuth, (req, res) => {
   const { preparado } = req.body;
   db.prepare('UPDATE pedido_items SET preparado = ? WHERE id = ?').run(preparado ? 1 : 0, req.params.id);
@@ -232,6 +158,7 @@ app.patch('/api/pedido_items/:id/preparado', jwtAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Login para staff: devuelve JWT
 app.post('/api/login', (req, res) => {
   const { user, pass } = req.body || {};
   const USER = process.env.STAFF_USER || 'staff';
@@ -243,6 +170,7 @@ app.post('/api/login', (req, res) => {
   res.status(401).json({ error: 'Credenciales inválidas' });
 });
 
+// Cambiar estación de un menu_item
 app.patch('/api/menu/:id/estacion', jwtAuth, (req, res) => {
   const { estacion } = req.body;
   if (!estacion) return res.status(400).json({ error: 'Estación requerida' });
@@ -252,6 +180,7 @@ app.patch('/api/menu/:id/estacion', jwtAuth, (req, res) => {
   res.json({ ok: true, item });
 });
 
+// Vista imprimible de un pedido
 app.get('/print/pedido/:id', (req, res) => {
   const p = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).send('Pedido no encontrado');
@@ -260,20 +189,28 @@ app.get('/print/pedido/:id', (req, res) => {
   res.send(html);
 });
 
+// Endpoint SSE para actualizaciones en tiempo real
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders && res.flushHeaders();
+
+  // enviar un ping inicial
   res.write('retry: 2000\n\n');
+
   sseClients.add(res);
+
   req.on('close', () => {
     sseClients.delete(res);
   });
 });
 
+// ── ESTADÍSTICAS (inventario) ─────────────────────────────────────────────────
+
 app.get('/api/stats', (req, res) => {
   const hoy = new Date().toISOString().split('T')[0];
+
   const totalHoy    = db.prepare("SELECT COALESCE(SUM(total),0) as v FROM pedidos WHERE DATE(creado_en)=? AND estado!='cancelado'").get(hoy);
   const pedidosHoy  = db.prepare("SELECT COUNT(*) as v FROM pedidos WHERE DATE(creado_en)=?").get(hoy);
   const topItems    = db.prepare(`
@@ -284,9 +221,11 @@ app.get('/api/stats', (req, res) => {
     GROUP BY pi.nombre ORDER BY vendidos DESC LIMIT 5
   `).all(hoy);
   const porEstado   = db.prepare("SELECT estado, COUNT(*) as n FROM pedidos WHERE DATE(creado_en)=? GROUP BY estado").all(hoy);
+
   res.json({ totalHoy: totalHoy.v, pedidosHoy: pedidosHoy.v, topItems, porEstado });
 });
 
+// ── Fallback ──────────────────────────────────────────────────────────────────
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
